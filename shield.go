@@ -4,30 +4,50 @@ import (
   "appengine"
   "appengine/urlfetch"
   "appengine/blobstore"
-  //"appengine/user"
-  //"code.google.com/p/google-api-go-client/compute/v1beta16"
-  //"code.google.com/p/google-api-go-client/storage/v1beta2"
-
+  "io/ioutil"
   "fmt"
   "html"
   "net/http"
 )
 
 const (
-  StorageURL = "https://storage.googleapis.com"
-  Bucket  = "wixstaticdev"
+    StorageURL = "https://storage.googleapis.com"
+    Bucket  = "wixstaticdev"
+    ComputeEngineHost = "http://static.gce.wixstatic.com"
 )
 
 func init() {
-  http.HandleFunc("/", handler)
+    http.HandleFunc("/", handler)
 }
 
 func blobFileName(fileName string) string {
-  return "/gs/" + Bucket + fileName
+    return "/gs/" + Bucket + fileName
 }
 
 func fileUrl(fileName string) string {
-  return StorageURL + "/" + Bucket + fileName
+    return StorageURL + "/" + Bucket + fileName
+}
+
+func getAndRender(w http.ResponseWriter, c appengine.Context, path string) {
+    client := urlfetch.Client(c)
+    resp, err := client.Get(ComputeEngineHost + path)
+    defer resp.Body.Close()
+    if err != nil {
+        handleError(w, c, err)
+        return
+    }
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        handleError(w, c, err)
+        return
+    }
+    w.Header().Set("Content-Type", "image/jpeg")
+    fmt.Fprintf(w, "%s", body) //serveContent ?
+}
+
+func handleError(w http.ResponseWriter, c appengine.Context, err error) {
+    c.Errorf(err.Error())
+    http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -35,8 +55,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
     imagePath := html.EscapeString(r.URL.Path)
 
     if imagePath == "/favicon.ico" {
-      http.NotFound(w,r)
-      return
+        http.NotFound(w, r)
+        return
     }
 
     c := appengine.NewContext(r)
@@ -44,18 +64,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
     resp, err := client.Head(fileUrl(imagePath))
     if err != nil {
-      c.Errorf(err.Error())
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
+        handleError(w, c, err)
+        return
 
     } else if resp.StatusCode == 200 { // image exists
-      w.Header().Set("Content-Type", "image/jpeg")
-      blobKey, err := blobstore.BlobKeyForFile(c, blobFileName(imagePath))
-      if err == nil {
-        w.Header().Set("X-AppEngine-BlobKey", string(blobKey))
-      }
-      fmt.Fprintln(w, "")
+        w.Header().Set("Content-Type", "image/jpeg")
+        blobKey, err := blobstore.BlobKeyForFile(c, blobFileName(imagePath))
+        if err == nil {
+          w.Header().Set("X-AppEngine-BlobKey", string(blobKey))
+        }
+        fmt.Fprintln(w, "")
 
-    } else if resp.StatusCode == 404 { // no image, do request to compute engine?
+    } else if resp.StatusCode == 404 { // no image, do request to compute engine
+
+        getAndRender(w, c, imagePath)
     }
 }
