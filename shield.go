@@ -6,7 +6,6 @@ import (
   "appengine/blobstore"
   "io/ioutil"
   "fmt"
-  "html"
   "net/http"
 )
 
@@ -49,7 +48,7 @@ func handleError(w http.ResponseWriter, c appengine.Context, err error) {
 
 func handler(w http.ResponseWriter, r *http.Request) {
     // "/media/ce7c31_f0e70d3996554b4cfeff3d19aa05739b.jpg_srz_170_150_75_22_0.5_1.20_0.00_jpg_srz"
-    imagePath := html.EscapeString(r.URL.Path)
+    imagePath := r.URL.Path
 
     if imagePath == "/favicon.ico" {
         http.NotFound(w, r)
@@ -62,7 +61,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
     resp, err := client.Head(fileUrl(imagePath))
     if err != nil {
         handleError(w, c, err)
-        return
 
     } else if resp.StatusCode == 200 { // image exists
         w.Header().Set("Content-Type", "image/jpeg")
