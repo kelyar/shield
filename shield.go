@@ -27,9 +27,15 @@ func fileUrl(fileName string) string {
     return StorageURL + "/" + Bucket + fileName
 }
 
-func getAndRender(w http.ResponseWriter, c appengine.Context, path string) error {
+func getAndRender(w http.ResponseWriter, r *http.Request, path string) error {
+    c := appengine.NewContext(r)
     client := urlfetch.Client(c)
+
     resp, err := client.Get(ComputeEngineHost + path)
+    if resp.StatusCode == 404 {
+        http.NotFound(w, r)
+        return nil
+    }
     defer resp.Body.Close()
     if err == nil {
         if body, err := ioutil.ReadAll(resp.Body); err == nil {
@@ -71,7 +77,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintln(w, "")
 
     } else if resp.StatusCode == 404 { // no image, do request to compute engine
-        if err = getAndRender(w, c, imagePath); err != nil {
+        if err = getAndRender(w, r, imagePath); err != nil {
             handleError(w, c, err)
         }
     }
