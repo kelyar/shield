@@ -1,0 +1,7 @@
+application: wixuserfiles
+# No version required, this does routing independent of version
+
+dispatch:
+  # Send all mobile traffic to the mobile frontend.
+  - url: "*/media/*"
+    module: shield
