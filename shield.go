@@ -9,7 +9,7 @@ import (
   "net/http"
 )
 
-const (
+var (
     StorageURL = "https://storage.googleapis.com"
     Bucket  = "wixstaticdev"
     ComputeEngineHost = "http://static.gce.wixstatic.com"
@@ -27,7 +27,7 @@ func fileUrl(fileName string) string {
     return StorageURL + "/" + Bucket + fileName
 }
 
-func getAndRender(w http.ResponseWriter, r *http.Request, path string) error {
+func GetAndRender(w http.ResponseWriter, r *http.Request, path string) error {
     c := appengine.NewContext(r)
     client := urlfetch.Client(c)
 
@@ -52,6 +52,16 @@ func handleError(w http.ResponseWriter, c appengine.Context, err error) {
     http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
+func RespondWithHeader(url string, c appengine.Context, w http.ResponseWriter, r *http.Request) error {
+    w.Header().Set("Content-Type", "image/jpeg")
+    blobKey, err := blobstore.BlobKeyForFile(c, blobFileName(url))
+    if err == nil {
+        w.Header().Set("X-AppEngine-BlobKey", string(blobKey))
+        fmt.Fprintln(w, "")
+    }
+    return err
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
     // "/media/ce7c31_f0e70d3996554b4cfeff3d19aa05739b.jpg_srz_170_150_75_22_0.5_1.20_0.00_jpg_srz"
     imagePath := r.URL.Path
@@ -69,15 +79,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
         handleError(w, c, err)
 
     } else if resp.StatusCode == 200 { // image exists
-        w.Header().Set("Content-Type", "image/jpeg")
-        blobKey, err := blobstore.BlobKeyForFile(c, blobFileName(imagePath))
-        if err == nil {
-          w.Header().Set("X-AppEngine-BlobKey", string(blobKey))
+        if err = RespondWithHeader(imagePath, c, w, r); err != nil {
+            handleError(w, c, err)
         }
-        fmt.Fprintln(w, "")
 
     } else if resp.StatusCode == 404 { // no image, do request to compute engine
-        if err = getAndRender(w, r, imagePath); err != nil {
+        if err = GetAndRender(w, r, imagePath); err != nil {
             handleError(w, c, err)
         }
     }
