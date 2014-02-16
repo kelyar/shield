@@ -11,7 +11,7 @@ import (
 )
 
 type Wrc struct {
-  w http.ResponseWriter
+  w *httptest.ResponseRecorder
   r *http.Request
   c appengine.Context
 }
@@ -50,7 +50,6 @@ func TestGetAndRender(t *testing.T) {
     wrc := NewWrc(t)
 
     jpg200 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintln(w, "HELLO")
         w.Header().Set("Content-Type", "application/jpeg")
         fmt.Fprintln(w, "iamjpg")
     }))
@@ -65,9 +64,19 @@ func TestGetAndRender(t *testing.T) {
     if err := shield.GetAndRender("/media/test.jpg", wrc.c, wrc.w, wrc.r); err != nil {
         t.Fatal(err)
     }
+    if wrc.w.Code != 404 {
+        t.Fatal("expected 404, got %v", wrc.w.Code)
+    }
 
+    wrc.w = httptest.NewRecorder()
     shield.ComputeEngineHost = jpg200.URL
     if err := shield.GetAndRender("/media/test.jpg", wrc.c, wrc.w, wrc.r); err != nil {
         t.Fatal(err)
+    }
+    if wrc.w.Code != 200 {
+        t.Fatal("expected 200, got %v", wrc.w.Code)
+    }
+    if wrc.w.Body.String() != "iamjpg\n" {
+        t.Fatal("expected iamjpg, got ", wrc.w.Body.String())
     }
 }
