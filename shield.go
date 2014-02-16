@@ -39,7 +39,7 @@ func GetAndRender(path string, c appengine.Context, w http.ResponseWriter, r *ht
     if err == nil {
         if body, err := ioutil.ReadAll(resp.Body); err == nil {
             w.Header().Set("Content-Type", "image/jpeg")
-            fmt.Fprintf(w, "%s", body) //ServeContent ? io.Copy?
+            fmt.Fprintf(w, "%s", body) // io.Copy?
             return nil
         }
     }

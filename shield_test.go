@@ -21,7 +21,7 @@ const (
 )
 
 var (
-  wrc Wrc
+    wrc Wrc
 )
 
 func NewWrc(t *testing.T) Wrc {
@@ -68,7 +68,7 @@ func TestGetAndRender404(t *testing.T) {
         t.Fatal(err)
     }
     if wrc.w.Code != 404 {
-        t.Fatal("expected 404, got %v", wrc.w.Code)
+        t.Fatal("expected 404, got ", wrc.w.Code)
     }
     defer wrc.c.Close()
 }
