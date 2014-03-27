@@ -16,6 +16,7 @@ var (
 )
 
 func init() {
+    http.HandleFunc("/exif/", ExifHandler)
     http.HandleFunc("/", handler)
 }
 
@@ -46,7 +47,7 @@ func GetAndRender(path string, c appengine.Context, w http.ResponseWriter, r *ht
     return err
 }
 
-func handleError(w http.ResponseWriter, c appengine.Context, err error) {
+func HandleError(w http.ResponseWriter, c appengine.Context, err error) {
     c.Errorf(err.Error())
     http.Error(w, err.Error(), http.StatusInternalServerError)
 }
@@ -75,16 +76,16 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
     resp, err := client.Head(fileUrl(imagePath))
     if err != nil {
-        handleError(w, c, err)
+        HandleError(w, c, err)
 
     } else if resp.StatusCode == 200 { // image exists
         if err = RespondWithHeader(imagePath, c, w, r); err != nil {
-            handleError(w, c, err)
+            HandleError(w, c, err)
         }
 
     } else if resp.StatusCode == 404 { // no image, do request to compute engine
         if err = GetAndRender(imagePath, c, w, r); err != nil {
-            handleError(w, c, err)
+            HandleError(w, c, err)
         }
     }
 }

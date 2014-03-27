@@ -47,10 +47,10 @@ func TestRespondWithHeader(t *testing.T) {
         t.Fatal(err)
     }
     if "encoded_gs_file:d2l4c3RhdGljZGV2L21lZGlhL3Rlc3QuanBn" != wrc.w.Header().Get("X-AppEngine-BlobKey") {
-        t.Fatal("expected encoded_gs_file, got %v", wrc.w.Header().Get("X-AppEngine-BlobKey"))
+        t.Fatal("expected encoded_gs_file, got", wrc.w.Header().Get("X-AppEngine-BlobKey"))
     }
     if "image/jpeg" != wrc.w.Header().Get("Content-Type") {
-        t.Fatal("expected image/jpeg, got %v", wrc.w.Header().Get("Content-Type"))
+        t.Fatal("expected image/jpeg, got", wrc.w.Header().Get("Content-Type"))
     }
     defer wrc.c.Close()
 }
@@ -68,7 +68,7 @@ func TestGetAndRender404(t *testing.T) {
         t.Fatal(err)
     }
     if wrc.w.Code != 404 {
-        t.Fatal("expected 404, got ", wrc.w.Code)
+        t.Fatal("expected 404, got", wrc.w.Code)
     }
     defer wrc.c.Close()
 }
@@ -87,7 +87,7 @@ func TestGetAndRender200(t *testing.T) {
         t.Fatal(err)
     }
     if wrc.w.Code != 200 {
-        t.Fatal("expected 200, got %v", wrc.w.Code)
+        t.Fatal("expected 200, got", wrc.w.Code)
     }
     if wrc.w.Body.String() != MagicResponse {
         t.Fatal("expected "+ MagicResponse + " , got ", wrc.w.Body.String())
