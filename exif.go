@@ -47,7 +47,6 @@ func ExifHandler(w http.ResponseWriter, r *http.Request) {
         focal,err := x.Get(exif.FocalLength)
         apert,err := x.Get(exif.ApertureValue)
         //speed,err := x.Get(exif.FNumber)
-        //if err == nil { speedStr = speed.StringVal() }
 
         js, err := json.Marshal(&exifResponse{
             Make: maker.String(),
@@ -55,7 +54,7 @@ func ExifHandler(w http.ResponseWriter, r *http.Request) {
             Iso: iso.String(),
             Focal: focal.String(),
             Aperture: apert.String(),
-            //Shutter: speedStr,
+            //Speed: speedStr,
         })
         if err != nil {
           HandleError(w, c, err)
