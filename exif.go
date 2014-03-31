@@ -5,62 +5,58 @@ import (
   "appengine/urlfetch"
   "bytes"
   "io/ioutil"
-  "encoding/json"
   "github.com/rwcarlsen/goexif/exif"
   "fmt"
   "net/http"
 )
 
-type exifResponse struct {
-  Make string     `json:"make"`
-  Model string    `json:"model"`
-  Focal string    `json:"focal"`
-  Iso string      `json:"iso"`
-  Aperture string `json:"aperture"`
-  Shutter string  `json:"speed"`
-  Size string
+func copyFromComputeEngine (path string, c appengine.Context, w http.ResponseWriter, r *http.Request) ([]byte, error) {
+    client := urlfetch.Client(c)
+    resp, err := client.Get(ComputeEngineHost + path)
+
+    if resp.StatusCode == 404 {
+        http.NotFound(w, r)
+        return []byte(""), nil
+    }
+    defer resp.Body.Close()
+    if err == nil {
+        if body, err := ioutil.ReadAll(resp.Body); err == nil {
+            return []byte(body), nil
+        }
+    }
+    return []byte(""), err
 }
 
 func ExifHandler(w http.ResponseWriter, r *http.Request) {
     c := appengine.NewContext(r)
     client := urlfetch.Client(c)
-    url := StorageURL + "/" + Bucket + r.URL.Path[5:len(r.URL.Path)] // remove '/exif'
+    imagePath := r.URL.Path[5:len(r.URL.Path)]
+    url := StorageURL + "/" + Bucket + imagePath // remove '/exif'
+
     resp, err := client.Get(url)
+    defer resp.Body.Close()
+
+    if err != nil {
+        HandleError(w, c, err)
+    }
+
+    var body []byte
 
     if resp.StatusCode == 404 {
-        http.NotFound(w, r)
-        return
-    }
-    defer resp.Body.Close()
-    if err == nil {
-        body, _ := ioutil.ReadAll(resp.Body)
-        x, err := exif.Decode(bytes.NewReader(body))
+        body, err = copyFromComputeEngine(imagePath, c, w, r)
         if err != nil {
-          c.Debugf("DECODE FAILED")
-          HandleError(w, c, err)
-          return
+            HandleError(w, c, err)
         }
-
-        maker,err := x.Get(exif.Make)
-        model,err := x.Get(exif.Model)
-        iso,  err := x.Get(exif.ISOSpeedRatings)
-        focal,err := x.Get(exif.FocalLength)
-        apert,err := x.Get(exif.ApertureValue)
-        //speed,err := x.Get(exif.FNumber)
-
-        js, err := json.Marshal(&exifResponse{
-            Make: maker.String(),
-            Model: model.String(),
-            Iso: iso.String(),
-            Focal: focal.String(),
-            Aperture: apert.String(),
-            //Speed: speedStr,
-        })
-        if err != nil {
-          HandleError(w, c, err)
-          return
-        }
-        w.Header().Set("Content-Type", "application/json")
-        fmt.Fprintf(w, string(js))
+    } else {
+        body, _ = ioutil.ReadAll(resp.Body)
     }
+
+    if x, err := exif.Decode(bytes.NewReader(body)); err == nil {
+        if js, err := x.MarshalJSON(); err == nil {
+            w.Header().Set("Content-Type", "application/json")
+            fmt.Fprintf(w, string(js))
+            return
+        }
+    }
+    HandleError(w, c, err)
 }
