@@ -24,7 +24,7 @@ func blobFileName(fileName string) string {
     return "/gs/" + Bucket + fileName
 }
 
-func fileUrl(fileName string) string {
+func FileUrl(fileName string) string {
     return StorageURL + "/" + Bucket + fileName
 }
 
@@ -48,8 +48,12 @@ func GetAndRender(path string, c appengine.Context, w http.ResponseWriter, r *ht
 }
 
 func HandleError(w http.ResponseWriter, c appengine.Context, err error) {
-    c.Errorf(err.Error())
-    http.Error(w, err.Error(), http.StatusInternalServerError)
+    if err.Error() == "404" {
+        http.Error(w, "404 page not found", http.StatusNotFound)
+    } else {
+        c.Errorf(err.Error())
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
 }
 
 func RespondWithHeader(url string, c appengine.Context, w http.ResponseWriter, r *http.Request) error {
@@ -74,7 +78,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
     c := appengine.NewContext(r)
     client := urlfetch.Client(c)
 
-    resp, err := client.Head(fileUrl(imagePath))
+    resp, err := client.Head(FileUrl(imagePath))
     if err != nil {
         HandleError(w, c, err)
 

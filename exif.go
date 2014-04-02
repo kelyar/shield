@@ -10,13 +10,18 @@ import (
   "net/http"
 )
 
-func copyFromComputeEngine (path string, c appengine.Context, w http.ResponseWriter, r *http.Request) ([]byte, error) {
-    client := urlfetch.Client(c)
+type Wrc struct {
+  w *http.ResponseWriter
+  r *http.Request
+  c appengine.Context
+}
+
+func copyFromComputeEngine (path string, wrcobj Wrc) ([]byte, error) {
+    client := urlfetch.Client(wrcobj.c)
     resp, err := client.Get(ComputeEngineHost + path)
 
     if resp.StatusCode == 404 {
-        http.NotFound(w, r)
-        return []byte(""), nil
+        return []byte(""), fmt.Errorf("404")
     }
     defer resp.Body.Close()
     if err == nil {
@@ -24,38 +29,44 @@ func copyFromComputeEngine (path string, c appengine.Context, w http.ResponseWri
             return []byte(body), nil
         }
     }
-    return []byte(""), err
+    return nil, err
 }
 
-func ExifHandler(w http.ResponseWriter, r *http.Request) {
-    c := appengine.NewContext(r)
-    client := urlfetch.Client(c)
-    imagePath := r.URL.Path[5:len(r.URL.Path)]
-    url := StorageURL + "/" + Bucket + imagePath // remove '/exif'
+func getImageContent(path string, wrcobj Wrc) ([]byte, error) {
+    var body []byte
+    client := urlfetch.Client(wrcobj.c)
 
-    resp, err := client.Get(url)
+    resp, err := client.Get(FileUrl(path))
     defer resp.Body.Close()
-
     if err != nil {
-        HandleError(w, c, err)
+        return nil, err
     }
 
-    var body []byte
-
     if resp.StatusCode == 404 {
-        body, err = copyFromComputeEngine(imagePath, c, w, r)
+        body, err = copyFromComputeEngine(path, wrcobj)
         if err != nil {
-            HandleError(w, c, err)
+            return nil, err
         }
     } else {
         body, _ = ioutil.ReadAll(resp.Body)
     }
+    return body, nil
+}
 
-    if x, err := exif.Decode(bytes.NewReader(body)); err == nil {
-        if js, err := x.MarshalJSON(); err == nil {
-            w.Header().Set("Content-Type", "application/json")
-            fmt.Fprintf(w, string(js))
-            return
+func ExifHandler(w http.ResponseWriter, r *http.Request) {
+    c := appengine.NewContext(r)
+    imagePath := r.URL.Path[5:len(r.URL.Path)] // remove '/exif' segment
+
+    body, err := getImageContent(imagePath, Wrc{&w, r, c})
+    if err == nil {
+        x, err := exif.Decode(bytes.NewReader(body))
+        if err == nil {
+            js, err := x.MarshalJSON()
+            if err == nil {
+                w.Header().Set("Content-Type", "application/json")
+                fmt.Fprintf(w, string(js))
+                return
+            }
         }
     }
     HandleError(w, c, err)
